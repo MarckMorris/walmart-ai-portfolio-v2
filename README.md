@@ -1,4 +1,3 @@
-cat > README.md << 'EOF'
 # 🏪 AI Portfolio
 
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker)](https://www.docker.com/)
@@ -194,9 +193,8 @@ This project is licensed under the Apache License 2.0 - see the LICENSE file for
 
 ---
 
-⭐ Star this repository if you find it helpful!
-EOF
+## Author
 
-git add README.md
-git commit -m "docs: Enhanced README with badges and detailed documentation"
-git push
+**Marcos Morris**, Cloud Infrastructure Engineer, Bentonville, AR
+
+[LinkedIn](https://www.linkedin.com/in/marck-morris/) · [Portfolio](https://marckmorris.github.io/) · marck.morris.pro@gmail.com
