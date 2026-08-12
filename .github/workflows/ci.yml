@@ -35,6 +35,12 @@ jobs:
           - merch-forecast-comparator
           - merch-content-enrichment
           - merch-shelf-gap-detector
+          - pm-okr-advisor
+          - pm-prd-writer
+          - pm-experiment-copilot
+          - pm-backlog-prioritizer
+          - pm-risk-register
+          - pm-stakeholder-qa
     steps:
       - uses: actions/checkout@v4
 
