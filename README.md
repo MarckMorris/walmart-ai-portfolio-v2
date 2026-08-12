@@ -1,200 +1,143 @@
-# 🏪 AI Portfolio
+# Retail AI Services
 
-[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker)](https://www.docker.com/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115.0-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/React-18.3.1-61DAFB?logo=react)](https://reactjs.org/)
-[![Prometheus](https://img.shields.io/badge/Prometheus-Monitoring-E6522C?logo=prometheus)](https://prometheus.io/)
-[![Grafana](https://img.shields.io/badge/Grafana-Dashboards-F46800?logo=grafana)](https://grafana.com/)
+**Twenty independent FastAPI microservices for retail and merchandising operations, behind one docker compose stack, with Prometheus metrics and a React dashboard.**
 
-> Production-ready microservices portfolio for AI-powered Walmart retail operations
+[![CI](https://github.com/MarckMorris/AI-portfolio-v2/actions/workflows/ci.yml/badge.svg)](https://github.com/MarckMorris/AI-portfolio-v2/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.12-blue)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-## 🎯 Overview
+## Read this first
 
-Complete microservices architecture with **20 FastAPI services**, interactive **React dashboard**, and real-time monitoring with **Prometheus + Grafana**.
+**One service is implemented. Nineteen are scaffolds.** They share a service
+template — health check, Prometheus metrics, OpenAPI schema, containerisation,
+compose wiring — and their `/predict` endpoint returns a placeholder that says so
+in the response body.
 
-### 📊 Architecture
+That is stated here rather than buried, because the alternative is nineteen
+endpoints that look finished and are not. What this repository actually
+demonstrates is the platform layer: a consistent service contract, per-service
+dependency isolation, observability wired in from the start, and CI that tests
+all twenty independently.
 
-- **20 Microservices** organized by domain (RETAIL, MERCHANDISING, PRODUCT MANAGEMENT)
-- **React Frontend** with real-time service monitoring
-- **Prometheus** metrics collection
-- **Grafana** visualization dashboards
-- **Docker Compose** orchestration
+| Service | Status | What it does |
+| --- | --- | --- |
+| `retail-catalog-normalizer` | **Implemented** | Canonicalises messy supplier product feeds |
+| the other 19 | Scaffold | Service template with health, metrics and OpenAPI |
 
-## 🚀 Quick Start
-```bash
-# 1. Clone repository
-git clone https://github.com/MarckMorris/ai-portfolio.git
-cd walmart-ai-portfolio
+## The implemented one: retail-catalog-normalizer
 
-# 2. Start all services
-bash scripts/start-all.sh
+Supplier feeds describe the same product five different ways:
 
-# 3. Verify services are running
-bash scripts/verify-services.sh
-
-# 4. Access the system
-# Frontend:   http://localhost:3000
-# Prometheus: http://localhost:9090
-# Grafana:    http://localhost:3001 (admin/admin)
+```
+"Coca-Cola 2 LTR"     brand: Coca-Cola     upc: 036000291452
+"coca cola 2l"        brand: coca cola
+"COCA COLA 2000ML"    brand: Coca Cola
 ```
 
-## 📦 Services
+Those are one product. Every downstream join — pricing, replenishment,
+assortment — breaks on them. This service reduces each record to a canonical
+form and reports which records collapse together:
 
-### RETAIL Domain (7 services)
-
-| Service | Port | Description |
-|---------|------|-------------|
-| Retail Assortment Agent | 8001 | Product assortment optimization |
-| Retail Pricing Simulator | 8002 | Dynamic pricing simulation |
-| Retail Catalog Normalizer | 8003 | Catalog data normalization |
-| Retail Replenishment Planner | 8004 | Inventory replenishment |
-| Retail Product Matching | 8005 | Product matching & deduplication |
-| Retail Customer Inquiry | 8006 | Customer inquiry triage |
-| Retail A11y Review | 8007 | Accessibility compliance review |
-
-### MERCHANDISING Domain (7 services)
-
-| Service | Port | Description |
-|---------|------|-------------|
-| Merch Vendor Scorecard | 8008 | Vendor performance scoring |
-| Merch Planogram Helper | 8009 | Planogram optimization |
-| Merch Promo Optimizer | 8010 | Promotion campaign optimization |
-| Merch Returns Analyzer | 8011 | Returns pattern analysis |
-| Merch Forecast Comparator | 8012 | Forecast accuracy comparison |
-| Merch Content Enrichment | 8013 | Product content enrichment |
-| Merch Shelf Gap Detector | 8014 | Shelf gap detection |
-
-### PRODUCT MANAGEMENT Domain (6 services)
-
-| Service | Port | Description |
-|---------|------|-------------|
-| PM OKR Advisor | 8015 | OKR goal setting advisor |
-| PM PRD Writer | 8016 | PRD document generation |
-| PM Experiment Copilot | 8017 | A/B test experiment planning |
-| PM Backlog Prioritizer | 8018 | Backlog prioritization |
-| PM Stakeholder QA | 8019 | Stakeholder Q&A assistant |
-| PM Risk Register | 8020 | Risk assessment & tracking |
-
-## 🛠️ Technology Stack
-
-- **Backend:** FastAPI 0.115.0 + Uvicorn
-- **Frontend:** React 18.3.1 + Vite
-- **Monitoring:** Prometheus + Grafana
-- **Containerization:** Docker + Docker Compose
-- **Metrics:** prometheus-client
-- **Testing:** pytest
-
-## 📖 Documentation
-
-### API Endpoints
-
-Each microservice exposes:
-- `GET /` - Root endpoint with service info
-- `GET /health` - Health check
-- `GET /info` - Detailed service information
-- `GET /metrics` - Prometheus metrics
-- `POST /predict` - Prediction/inference endpoint
-
-### Testing
 ```bash
-# Run tests for a specific service
-cd retail-assortment-agent
-pytest
-
-# Test a service via API
-bash scripts/test-service.sh 8001
+curl -X POST http://localhost:8003/normalize \
+  -H "Content-Type: application/json" \
+  -d '{"records": [
+        {"name": "Coca-Cola 2 LTR", "brand": "Coca-Cola", "upc": "036000291452"},
+        {"name": "coca cola 2l", "brand": "coca cola"},
+        {"name": "COCA COLA 2000ML", "brand": "Coca Cola"}
+      ]}'
 ```
 
-### Monitoring
+```json
+{
+  "count": 3,
+  "duplicate_groups": {"coca cola|2000ml": [0, 1, 2]},
+  "records_with_warnings": 0
+}
+```
 
-- **Prometheus Targets:** http://localhost:9090/targets
-- **Grafana Dashboards:** http://localhost:3001/dashboards
+**What it handles.** Units converted to one base unit per dimension — millilitres
+for volume, grams for weight — so `2 LTR`, `2l` and `2000ML` all become 2000 ml, and
+`12 oz` becomes 340.194 g. Multipacks extracted from `6 x 330ml`, `pack of 12`, `24ct`.
+Accents folded, hyphens and case normalised, stop words dropped. Barcodes
+validated against their GS1 check digit and padded to GTIN-14.
 
-## 🔧 Development
+**Three decisions worth naming:**
+
+- **`fl oz` is matched before `oz`.** Otherwise every drink in the catalogue silently becomes a weight.
+- **A barcode that fails its own checksum is rejected, not stored.** A bad check digit is a transcription error, and accepting it is how two different products get merged into one.
+- **Nothing is guessed silently.** Every record carries a `warnings` list, and the batch response counts how many records produced one. A pipeline that cannot explain why it changed a value is one nobody will run in production.
+
+No machine learning. Deterministic rules, 67 tests.
+
+The normalisation logic lives in `retail-catalog-normalizer/app/normalizer.py` and
+imports nothing web-related, so it can be dropped into a batch job or a notebook
+without starting a server.
+
+## The service template
+
+Every service exposes the same contract, which is what makes twenty of them
+manageable:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /health` | Liveness, used by compose and the verification script |
+| `GET /` | Service identity and version |
+| `GET /info` | Its own endpoint list, so the dashboard can discover it |
+| `GET /metrics` | Prometheus: request count and latency histogram per endpoint |
+| `GET /docs` | OpenAPI schema |
+
+Each service owns its `requirements.txt` and its `Dockerfile`, so one service
+adding a heavy dependency does not slow the other nineteen.
+
+## Running it
+
 ```bash
-# Run a single service in development mode
-cd retail-assortment-agent
+git clone https://github.com/MarckMorris/AI-portfolio-v2.git
+cd AI-portfolio-v2
+docker compose up
+```
+
+| | |
+| --- | --- |
+| Dashboard | http://localhost:3000 |
+| Catalog normalizer | http://localhost:8003/docs |
+| Prometheus | http://localhost:9090 |
+| Grafana | http://localhost:3001 |
+
+One service on its own:
+
+```bash
+cd retail-catalog-normalizer
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8001
-
-# View logs
-docker-compose logs -f retail-assortment-agent
-
-# Restart a service
-docker-compose restart retail-assortment-agent
-
-# Rebuild a service
-docker-compose up -d --build retail-assortment-agent
+python -m pytest -v          # 67 tests
+uvicorn app.main:app --reload --port 8003
 ```
 
-## 🐳 Docker Commands
-```bash
-# Build all images
-docker-compose build
+## CI
 
-# Start all services
-docker-compose up -d
+Each of the twenty services is installed and tested in isolation, in its own
+matrix job. The React dashboard is built, and the compose file is validated —
+which catches the failure that actually happens in a repository this shape: a
+service renamed in one place and not the other.
 
-# Stop all services
-docker-compose down
+Building twenty container images on every push was the previous workflow. It
+cost more than it caught and has been removed.
 
-# View running containers
-docker-compose ps
+## Known limitations
 
-# View logs
-docker-compose logs -f
-```
+- Nineteen services return a placeholder from `/predict`. The response body says so.
+- No persistence layer. Nothing is stored between requests.
+- No authentication. Every service is open, which is fine on a compose network and not fine anywhere else.
+- CORS is wide open for local development.
+- Grafana ships with the default credentials.
 
-## 📊 Project Structure
-```
-ai-portfolio/
-├── retail-assortment-agent/      # Microservice 1
-│   ├── app/
-│   │   └── main.py               # FastAPI application
-│   ├── tests/                    # Unit tests
-│   ├── Dockerfile
-│   └── requirements.txt
-├── ... (19 more services)
-├── frontend/                      # React dashboard
-│   ├── src/
-│   │   ├── App.jsx
-│   │   └── components/
-│   ├── package.json
-│   └── Dockerfile
-├── monitoring/                    # Monitoring config
-│   ├── prometheus.yml
-│   └── grafana-provisioning/
-├── scripts/                       # Utility scripts
-│   ├── start-all.sh
-│   ├── verify-services.sh
-│   └── test-service.sh
-├── docker-compose.yml             # Orchestration
-└── README.md
-```
+## License
 
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📄 License
-
-This project is licensed under the Apache License 2.0 - see the LICENSE file for details.
-
-## 👨‍💻 Author
-
-**MarckMorris**
-- GitHub: [@MarckMorris](https://github.com/MarckMorris)
-
-## 🙏 Acknowledgments
-
-- Built with FastAPI framework
-- Inspired by microservices best practices
-- Designed for Walmart retail operations
-
----
+MIT — see [LICENSE](LICENSE).
 
 ## Author
 
-**Marcos Morris**, Cloud Infrastructure Engineer, Bentonville, AR
+**Marcos Morris** — Cloud Infrastructure Engineer, Bentonville, AR
 
 [LinkedIn](https://www.linkedin.com/in/marck-morris/) · [Portfolio](https://marckmorris.github.io/) · marck.morris.pro@gmail.com
